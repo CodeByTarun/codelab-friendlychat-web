@@ -52,7 +52,7 @@ async function signIn() {
   // Sign in Firebase using popup auth and Google as the identity provider.
   var provider = new GoogleAuthProvider();
   await signInWithPopup(getAuth(), provider);
-
+}
 
 // Signs-out of Friendly Chat.
 function signOutUser() {
@@ -83,12 +83,35 @@ function isUserSignedIn() {
 
 // Saves a new message on the Cloud Firestore.
 async function saveMessage(messageText) {
-  // TODO 7: Push a new message to Cloud Firestore.
+  // Add a new message entry to the Firebase database.
+  try {
+    await addDoc(collection(getFirestore(), 'messages'), {
+      name: getUserName(),
+      text: messageText,
+      profilePicUrl: getProfilePicUrl(),
+      timestamp: serverTimestamp()
+    });
+  }
+  catch(error) {
+    console.error('Error writing new message to Firebase Database', error);
+  }
 }
 
 // Loads chat messages history and listens for upcoming ones.
 function loadMessages() {
   // TODO 8: Load and listen for new messages.
+  const recentMessagesQuery = query(collection(getFirestore(), 'messages'), orderBy('timestamp', 'desc'), limit(12));
+
+  onSnapshot(recentMessagesQuery, function(snapshot) {
+    snapshot.docChanges().forEach(function(change) {
+      if (change.type === 'removed') {
+        deleteMessage(change.doc.id);
+      } else {
+        var message = change.doc.data();
+        displayMessage(change.doc.id, message.timestamp, message.name, message.text, message.profilePicUrl, message.imageUrl);
+      }
+    })
+  }) 
 }
 
 // Saves a new message containing an image in Firebase.
@@ -345,13 +368,10 @@ imageButtonElement.addEventListener('click', function (e) {
 });
 mediaCaptureElement.addEventListener('change', onMediaFileSelected);
 
-const firebaseAppConfig = getFirebaseConfig();
 // TODO 0: Initialize Firebase
-initializeApp(firebaseAppConfig);
+initializeApp(getFirebaseConfig());
 
 // TODO 12: Initialize Firebase Performance Monitoring
-
 initFirebaseAuth();
 loadMessages();
 
-}
